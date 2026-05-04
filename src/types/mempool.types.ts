@@ -7,31 +7,15 @@
 // Raw (API — snake_case)
 // ---------------------------------------------------------------------------
 
-export interface RawPendingTransfer {
-  tx_id: string;
-  amount: string;
-  from_address: string;
-  to_address: string;
-}
-
 export interface RawPendingResult {
   address: string;
   ticker: string;
-  pending_amount: string;
-  transfers: RawPendingTransfer[];
+  has_pending_transfer: boolean;
 }
 
 // ---------------------------------------------------------------------------
 // Normalized (SDK — camelCase)
 // ---------------------------------------------------------------------------
-
-/** Un transfert BRC-20 non confirmé dans la mempool. */
-export interface PendingTransfer {
-  txId: string;
-  amount: string;
-  fromAddress: string;
-  toAddress: string;
-}
 
 /**
  * Résultat de la vérification des transferts en attente pour une adresse
@@ -40,8 +24,6 @@ export interface PendingTransfer {
 export interface PendingResult {
   address: string;
   ticker: string;
-  /** Montant total en attente de confirmation. */
-  pendingAmount: string;
-  /** Liste des transferts non confirmés. */
-  transfers: PendingTransfer[];
+  /** `true` si l'adresse a au moins un transfert BRC-20 non confirmé pour ce ticker. */
+  hasPendingTransfer: boolean;
 }

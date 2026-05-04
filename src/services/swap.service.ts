@@ -113,23 +113,23 @@ export class SwapService {
   }
 
   /**
-   * Retourne les positions de swap dont le bloc d'expiration approche.
+   * Retourne les positions de swap qui expirent à une hauteur de bloc donnée ou avant.
    *
-   * Utile pour les contrepartistes qui souhaitent exécuter des swaps
-   * avant qu'ils n'expirent.
-   *
-   * @param options - Pagination : limit, offset
+   * @param heightLte - Hauteur de bloc maximale pour l'expiration (REQUIS)
+   * @param options   - Pagination : limit, offset
    *
    * @example
-   * const expiring = await client.getExpiringSwapPositions({ limit: 20 });
+   * // Positions qui expirent au prochain bloc ou avant
+   * const expiring = await client.getExpiringSwapPositions(895000, { limit: 20 });
    * expiring.forEach(p => console.log(`Expire bloc #${p.unlockHeight}`));
    */
   async getExpiringPositions(
+    heightLte: number,
     options: Pick<ListPositionsOptions, 'limit' | 'offset'> = {},
   ): Promise<SwapPosition[]> {
     const raw = await this.http.get<RawListResponse<RawSwapPosition>>(
       '/v1/indexer/swap/expiring',
-      { limit: options.limit, offset: options.offset },
+      { height_lte: heightLte, limit: options.limit, offset: options.offset },
     );
     return raw.items.map(normalizeSwapPosition);
   }

@@ -2,16 +2,15 @@ import { HttpClient } from '../utils/http';
 import {
   ValidateWrapMintRequest,
   ValidateAddressFromWitnessRequest,
-  RawValidationResult,
-  ValidationResult,
+  RawValidateWrapMintResponse,
+  RawValidateAddressResponse,
+  WrapMintValidationResult,
+  AddressValidationResult,
 } from '../types/validator.types';
-import { normalizeValidationResult } from '../utils/normalize';
+import { normalizeWrapMintValidation, normalizeAddressValidation } from '../utils/normalize';
 
 /**
  * Service gérant les endpoints de validation de l'indexeur Simplicity.
- *
- * Permet de valider les transactions Wrap (W) et les adresses Taproot
- * avant de les soumettre au réseau Bitcoin.
  *
  * Endpoints couverts :
  *   POST /v1/validator/validate-wrap-mint              → validateWrapMint()
@@ -23,46 +22,36 @@ export class ValidatorService {
   /**
    * Valide une transaction de Wrap Mint (création de token W).
    *
-   * Vérifie que la transaction Bitcoin est correctement formée pour
-   * minter des tokens W selon le protocole Universal Protocol.
-   *
-   * @param txid - TXID de la transaction Bitcoin à valider
+   * @param rawTxHex - Transaction Bitcoin brute en hexadécimal
    *
    * @example
-   * const result = await client.validateWrapMint('a1b2c3...');
-   * if (!result.valid) {
-   *   console.error('Transaction invalide:', result.message);
-   * }
+   * const result = await client.validateWrapMint('0200000000010001a83c...');
+   * if (!result.isValid) console.error('Invalide:', result.reason);
    */
-  async validateWrapMint(txid: string): Promise<ValidationResult> {
-    const body: ValidateWrapMintRequest = { txid };
-    const raw = await this.http.post<RawValidationResult>(
+  async validateWrapMint(rawTxHex: string): Promise<WrapMintValidationResult> {
+    const body: ValidateWrapMintRequest = { raw_tx_hex: rawTxHex };
+    const raw = await this.http.post<RawValidateWrapMintResponse>(
       '/v1/validator/validate-wrap-mint',
       body,
     );
-    return normalizeValidationResult(raw);
+    return normalizeWrapMintValidation(raw);
   }
 
   /**
-   * Valide et dérive une adresse Bitcoin depuis un script witness Taproot.
+   * Valide et recalcule une adresse Taproot à partir d'une transaction brute.
    *
-   * Utile pour vérifier qu'une adresse générée côté client correspond
-   * bien au witness script attendu par le protocole.
-   *
-   * @param witness - Script witness Taproot (hex ou base64)
+   * @param rawTxHex - Transaction Bitcoin brute en hexadécimal
    *
    * @example
-   * const result = await client.validateAddressFromWitness('5120...');
-   * if (result.valid) {
-   *   console.log('Adresse dérivée:', result.address);
-   * }
+   * const result = await client.validateAddressFromWitness('0200000000010001a83c...');
+   * if (result.isValid) console.log('Adresse:', result.foundAddress);
    */
-  async validateAddressFromWitness(witness: string): Promise<ValidationResult> {
-    const body: ValidateAddressFromWitnessRequest = { witness };
-    const raw = await this.http.post<RawValidationResult>(
+  async validateAddressFromWitness(rawTxHex: string): Promise<AddressValidationResult> {
+    const body: ValidateAddressFromWitnessRequest = { raw_tx_hex: rawTxHex };
+    const raw = await this.http.post<RawValidateAddressResponse>(
       '/v1/validator/validate-address-from-witness',
       body,
     );
-    return normalizeValidationResult(raw);
+    return normalizeAddressValidation(raw);
   }
 }

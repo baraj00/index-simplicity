@@ -25,13 +25,23 @@ export type {
 } from './src/types/swap.types';
 
 // Types — Mempool
-export type { PendingTransfer, PendingResult } from './src/types/mempool.types';
+export type { PendingResult } from './src/types/mempool.types';
 
 // Types — Validator
-export type { ValidationResult } from './src/types/validator.types';
+export type {
+  ValidationDetails,
+  CryptoDetails,
+  WrapMintValidationResult,
+  AddressValidationResult,
+} from './src/types/validator.types';
 
 // Types — Wrap
-export type { WrapContract } from './src/types/wrap.types';
+export type {
+  WrapContract,
+  WrapTvl,
+  WrapMetrics,
+  ListContractsOptions,
+} from './src/types/wrap.types';
 
 // Types — Communs
 export type { ActivityOptions, PaginationOptions } from './src/types/common.types';

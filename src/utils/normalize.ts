@@ -26,8 +26,20 @@ import {
   RawPendingResult,
   PendingResult,
 } from '../types/mempool.types';
-import { RawValidationResult, ValidationResult } from '../types/validator.types';
-import { RawWrapContract, WrapContract } from '../types/wrap.types';
+import {
+  RawValidateWrapMintResponse,
+  RawValidateAddressResponse,
+  WrapMintValidationResult,
+  AddressValidationResult,
+} from '../types/validator.types';
+import {
+  RawWrapContract,
+  RawWrapTvl,
+  RawWrapMetrics,
+  WrapContract,
+  WrapTvl,
+  WrapMetrics,
+} from '../types/wrap.types';
 
 // ---------------------------------------------------------------------------
 // Address
@@ -137,13 +149,7 @@ export function normalizePendingResult(raw: RawPendingResult): PendingResult {
   return {
     address: raw.address,
     ticker: raw.ticker,
-    pendingAmount: raw.pending_amount,
-    transfers: raw.transfers.map((t) => ({
-      txId: t.tx_id,
-      amount: t.amount,
-      fromAddress: t.from_address,
-      toAddress: t.to_address,
-    })),
+    hasPendingTransfer: raw.has_pending_transfer,
   };
 }
 
@@ -151,11 +157,42 @@ export function normalizePendingResult(raw: RawPendingResult): PendingResult {
 // Validator
 // ---------------------------------------------------------------------------
 
-export function normalizeValidationResult(raw: RawValidationResult): ValidationResult {
+export function normalizeWrapMintValidation(raw: RawValidateWrapMintResponse): WrapMintValidationResult {
   return {
-    valid: raw.valid,
-    message: raw.message,
-    address: raw.address,
+    isValid: raw.is_valid,
+    reason: raw.reason,
+    details: raw.details
+      ? {
+          expectedAddress: raw.details.expected_address,
+          foundAddress: raw.details.found_address,
+          expectedAmountSats: raw.details.expected_amount_sats,
+          foundAmountSats: raw.details.found_amount_sats,
+        }
+      : null,
+  };
+}
+
+export function normalizeAddressValidation(raw: RawValidateAddressResponse): AddressValidationResult {
+  return {
+    isValid: raw.is_valid,
+    reason: raw.reason,
+    expectedAddress: raw.expected_address,
+    foundAddress: raw.found_address,
+    cryptoDetails: raw.crypto_details
+      ? {
+          alicePubkeyXonly: raw.crypto_details.alice_pubkey_xonly,
+          platformPubkeyXonly: raw.crypto_details.platform_pubkey_xonly,
+          internalKeyXonly: raw.crypto_details.internal_key_xonly,
+          csvBlocks: raw.crypto_details.csv_blocks,
+          multisigScript: raw.crypto_details.multisig_script,
+          csvScript: raw.crypto_details.csv_script,
+          multisigLeafHash: raw.crypto_details.multisig_leaf_hash,
+          csvLeafHash: raw.crypto_details.csv_leaf_hash,
+          merkleRoot: raw.crypto_details.merkle_root,
+          outputKey: raw.crypto_details.output_key,
+          parity: raw.crypto_details.parity,
+        }
+      : null,
   };
 }
 
@@ -165,12 +202,28 @@ export function normalizeValidationResult(raw: RawValidationResult): ValidationR
 
 export function normalizeWrapContract(raw: RawWrapContract): WrapContract {
   return {
-    contractId: raw.contract_id,
-    ticker: raw.ticker,
-    taprootAddress: raw.taproot_address,
-    network: raw.network,
+    scriptAddress: raw.script_address,
+    initiatorAddress: raw.initiator_address,
     status: raw.status,
-    totalWrapped: raw.total_wrapped,
-    totalUnwrapped: raw.total_unwrapped,
+    initialAmount: raw.initial_amount,
+    timelockDelay: raw.timelock_delay,
+    creationHeight: raw.creation_height,
+    closureHeight: raw.closure_height,
+  };
+}
+
+export function normalizeWrapTvl(raw: RawWrapTvl): WrapTvl {
+  return {
+    ticker: raw.ticker,
+    remainingLocked: raw.remaining_locked,
+  };
+}
+
+export function normalizeWrapMetrics(raw: RawWrapMetrics): WrapMetrics {
+  return {
+    tvlW: raw.tvl_w,
+    activeContracts: raw.active_contracts,
+    closedContracts: raw.closed_contracts,
+    expiredContracts: raw.expired_contracts,
   };
 }

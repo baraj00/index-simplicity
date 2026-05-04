@@ -117,16 +117,26 @@ export class TokenService {
   /**
    * Retourne TOUT l'historique des opérations pour un token (sans pagination).
    *
-   * @param ticker - Ticker du token
+   * @param ticker  - Ticker du token
+   * @param options - Filtres : opType, maxResults, includeInvalid
    *
    * @example
    * const fullHistory = await client.getAllTokenHistory('ORDI');
    */
-  async getAllHistory(ticker: string): Promise<Operation[]> {
-    const raw = await this.http.get<RawOp[]>(
-      `/v1/indexer/brc20/${encodeURIComponent(ticker.toUpperCase())}/history/all`,
+  async getAllHistory(
+    ticker: string,
+    options: { opType?: string; maxResults?: number; includeInvalid?: boolean } = {},
+  ): Promise<Operation[]> {
+    const raw = await this.http.get<{ data: RawOp[] }>(
+      '/v1/indexer/brc20/history/all',
+      {
+        ticker: ticker.toUpperCase(),
+        op_type: options.opType,
+        max_results: options.maxResults,
+        include_invalid: options.includeInvalid,
+      },
     );
-    return raw.map(normalizeOp);
+    return raw.data.map(normalizeOp);
   }
 
   /**
@@ -146,19 +156,42 @@ export class TokenService {
   }
 
   /**
-   * Retourne toutes les opérations BRC-20 indexées à une hauteur de bloc donnée.
+   * Retourne toutes les opérations BRC-20 indexées à une hauteur de bloc donnée (avec pagination).
    *
-   * Utile pour reconstruire l'état du protocole à un bloc précis.
-   *
-   * @param height - Hauteur du bloc Bitcoin (ex: 840000)
+   * @param height  - Hauteur du bloc Bitcoin (ex: 840000)
+   * @param options - limit, skip
    *
    * @example
    * const ops = await client.getHistoryByHeight(840000);
    */
-  async getHistoryByHeight(height: number): Promise<Operation[]> {
+  async getHistoryByHeight(
+    height: number,
+    options: { limit?: number; skip?: number } = {},
+  ): Promise<Operation[]> {
     const raw = await this.http.get<RawOp[]>(
       `/v1/indexer/brc20/history-by-height/${encodeURIComponent(String(height))}`,
+      { limit: options.limit, skip: options.skip },
     );
     return raw.map(normalizeOp);
+  }
+
+  /**
+   * Retourne TOUTES les opérations BRC-20 d'un bloc (sans pagination).
+   *
+   * @param height  - Hauteur du bloc Bitcoin
+   * @param options - maxResults, includeInvalid
+   *
+   * @example
+   * const all = await client.getAllHistoryByHeight(840000);
+   */
+  async getAllHistoryByHeight(
+    height: number,
+    options: { maxResults?: number; includeInvalid?: boolean } = {},
+  ): Promise<Operation[]> {
+    const raw = await this.http.get<{ data: RawOp[] }>(
+      `/v1/indexer/brc20/history-by-height/${encodeURIComponent(String(height))}/all`,
+      { max_results: options.maxResults, include_invalid: options.includeInvalid },
+    );
+    return raw.data.map(normalizeOp);
   }
 }

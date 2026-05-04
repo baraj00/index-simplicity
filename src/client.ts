@@ -16,8 +16,8 @@ import {
   ListPoolsOptions,
 } from './types/swap.types';
 import { PendingResult } from './types/mempool.types';
-import { ValidationResult } from './types/validator.types';
-import { WrapContract } from './types/wrap.types';
+import { WrapMintValidationResult, AddressValidationResult } from './types/validator.types';
+import { WrapContract, WrapTvl, WrapMetrics, ListContractsOptions } from './types/wrap.types';
 import { ActivityOptions } from './types/common.types';
 
 export interface UniversalClientOptions {
@@ -207,13 +207,15 @@ export class UniversalClient {
   }
 
   /**
-   * Retourne les positions de swap dont l'expiration approche.
-   * @param options - limit, offset
+   * Retourne les positions de swap qui expirent à une hauteur donnée ou avant.
+   * @param heightLte - Hauteur de bloc maximale (REQUIS)
+   * @param options   - limit, offset
    */
   getExpiringSwapPositions(
+    heightLte: number,
     options?: Pick<ListPositionsOptions, 'limit' | 'offset'>,
   ): Promise<SwapPosition[]> {
-    return this.swap.getExpiringPositions(options);
+    return this.swap.getExpiringPositions(heightLte, options);
   }
 
   // ---------------------------------------------------------------------------
@@ -238,10 +240,14 @@ export class UniversalClient {
 
   /**
    * Retourne TOUT l'historique d'un token (sans pagination).
-   * @param ticker - Ticker du token
+   * @param ticker  - Ticker du token
+   * @param options - opType, maxResults, includeInvalid
    */
-  getAllTokenHistory(ticker: string): Promise<Operation[]> {
-    return this.tokens.getAllHistory(ticker);
+  getAllTokenHistory(
+    ticker: string,
+    options?: { opType?: string; maxResults?: number; includeInvalid?: boolean },
+  ): Promise<Operation[]> {
+    return this.tokens.getAllHistory(ticker, options);
   }
 
   /**
@@ -254,11 +260,27 @@ export class UniversalClient {
   }
 
   /**
-   * Retourne toutes les opérations BRC-20 indexées à une hauteur de bloc donnée.
-   * @param height - Hauteur du bloc Bitcoin
+   * Retourne toutes les opérations BRC-20 indexées à une hauteur de bloc donnée (avec pagination).
+   * @param height  - Hauteur du bloc Bitcoin
+   * @param options - limit, skip
    */
-  getHistoryByHeight(height: number): Promise<Operation[]> {
-    return this.tokens.getHistoryByHeight(height);
+  getHistoryByHeight(
+    height: number,
+    options?: { limit?: number; skip?: number },
+  ): Promise<Operation[]> {
+    return this.tokens.getHistoryByHeight(height, options);
+  }
+
+  /**
+   * Retourne TOUTES les opérations BRC-20 d'un bloc (sans pagination).
+   * @param height  - Hauteur du bloc Bitcoin
+   * @param options - maxResults, includeInvalid
+   */
+  getAllHistoryByHeight(
+    height: number,
+    options?: { maxResults?: number; includeInvalid?: boolean },
+  ): Promise<Operation[]> {
+    return this.tokens.getAllHistoryByHeight(height, options);
   }
 
   // ---------------------------------------------------------------------------
@@ -304,27 +326,27 @@ export class UniversalClient {
   /**
    * Valide une transaction de Wrap Mint (création de token W).
    *
-   * @param txid - TXID de la transaction Bitcoin
+   * @param rawTxHex - Transaction Bitcoin brute en hexadécimal
    *
    * @example
-   * const result = await client.validateWrapMint('a1b2c3...');
-   * if (!result.valid) console.error(result.message);
+   * const result = await client.validateWrapMint('0200000000010001a83c...');
+   * if (!result.isValid) console.error(result.reason);
    */
-  validateWrapMint(txid: string): Promise<ValidationResult> {
-    return this.validator.validateWrapMint(txid);
+  validateWrapMint(rawTxHex: string): Promise<WrapMintValidationResult> {
+    return this.validator.validateWrapMint(rawTxHex);
   }
 
   /**
-   * Valide et dérive une adresse Bitcoin depuis un script witness Taproot.
+   * Valide et recalcule une adresse Taproot depuis une transaction brute.
    *
-   * @param witness - Script witness Taproot (hex ou base64)
+   * @param rawTxHex - Transaction Bitcoin brute en hexadécimal
    *
    * @example
-   * const result = await client.validateAddressFromWitness('5120...');
-   * if (result.valid) console.log(result.address);
+   * const result = await client.validateAddressFromWitness('0200000000010001a83c...');
+   * if (result.isValid) console.log(result.foundAddress);
    */
-  validateAddressFromWitness(witness: string): Promise<ValidationResult> {
-    return this.validator.validateAddressFromWitness(witness);
+  validateAddressFromWitness(rawTxHex: string): Promise<AddressValidationResult> {
+    return this.validator.validateAddressFromWitness(rawTxHex);
   }
 
   // ---------------------------------------------------------------------------
@@ -332,13 +354,35 @@ export class UniversalClient {
   // ---------------------------------------------------------------------------
 
   /**
-   * Retourne la liste de tous les contrats de wrap (token W).
+   * Retourne la liste des contrats de wrap avec filtres optionnels.
+   * @param options - status, owner, limit, offset
    *
    * @example
-   * const contracts = await client.listWrapContracts();
-   * const active = contracts.filter(c => c.status === 'active');
+   * const actifs = await client.listWrapContracts({ status: 'active' });
    */
-  listWrapContracts(): Promise<WrapContract[]> {
-    return this.wrap.listContracts();
+  listWrapContracts(options?: ListContractsOptions): Promise<WrapContract[]> {
+    return this.wrap.listContracts(options);
+  }
+
+  /**
+   * Récupère les détails d'un contrat de wrap par son adresse script.
+   * @param scriptAddress - Adresse Taproot du contrat (bc1p...)
+   */
+  getWrapContract(scriptAddress: string): Promise<WrapContract> {
+    return this.wrap.getContract(scriptAddress);
+  }
+
+  /**
+   * Retourne la TVL (Total Value Locked) du module Wrap.
+   */
+  getWrapTvl(): Promise<WrapTvl> {
+    return this.wrap.getTvl();
+  }
+
+  /**
+   * Retourne les métriques globales du module Wrap.
+   */
+  getWrapMetrics(): Promise<WrapMetrics> {
+    return this.wrap.getMetrics();
   }
 }

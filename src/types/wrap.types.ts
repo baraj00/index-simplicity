@@ -8,30 +8,74 @@
 // ---------------------------------------------------------------------------
 
 export interface RawWrapContract {
-  contract_id: string;
-  /** Ticker du token enveloppé (généralement "W"). */
+  /** Adresse Taproot du script du contrat. */
+  script_address: string;
+  /** Adresse de l'initiateur du contrat. */
+  initiator_address: string;
+  status: string;
+  initial_amount: string | null;
+  timelock_delay: number | null;
+  creation_height: number;
+  closure_height: number | null;
+}
+
+export interface RawWrapTvl {
   ticker: string;
-  /** Adresse Taproot du contrat de wrap. */
-  taproot_address: string;
-  network: string;
-  status: 'active' | 'inactive';
-  /** Montant total de tokens wrappés (locked dans le contrat). */
-  total_wrapped: string;
-  /** Montant total de tokens unwrappés (sortis du contrat). */
-  total_unwrapped: string;
+  remaining_locked: string;
+}
+
+export interface RawWrapMetrics {
+  tvl_w: string;
+  active_contracts: string;
+  closed_contracts: string;
+  expired_contracts: string;
+}
+
+export interface RawContractListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: RawWrapContract[];
 }
 
 // ---------------------------------------------------------------------------
 // Normalized (SDK — camelCase)
 // ---------------------------------------------------------------------------
 
-/** Contrat de wrap — Taproot address qui lock des tokens pour minter du W. */
+/** Contrat de wrap — verrouille des tokens pour minter du W. */
 export interface WrapContract {
-  contractId: string;
+  /** Adresse Taproot du script du contrat. */
+  scriptAddress: string;
+  /** Adresse de l'initiateur. */
+  initiatorAddress: string;
+  status: string;
+  initialAmount: string | null;
+  timelockDelay: number | null;
+  creationHeight: number;
+  closureHeight: number | null;
+}
+
+/** TVL du module Wrap. */
+export interface WrapTvl {
   ticker: string;
-  taprootAddress: string;
-  network: string;
-  status: 'active' | 'inactive';
-  totalWrapped: string;
-  totalUnwrapped: string;
+  remainingLocked: string;
+}
+
+/** Métriques globales du module Wrap. */
+export interface WrapMetrics {
+  tvlW: string;
+  activeContracts: string;
+  closedContracts: string;
+  expiredContracts: string;
+}
+
+// ---------------------------------------------------------------------------
+// Options de requête
+// ---------------------------------------------------------------------------
+
+export interface ListContractsOptions {
+  status?: string;
+  owner?: string;
+  limit?: number;
+  offset?: number;
 }

@@ -8,9 +8,6 @@ import { normalizePendingResult } from '../utils/normalize';
 /**
  * Service gérant les endpoints de la mempool Bitcoin.
  *
- * Permet de vérifier si des transferts BRC-20 sont en attente de confirmation
- * pour une adresse donnée.
- *
  * Endpoints couverts :
  *   POST /v1/mempool/check-pending   → checkPending()
  */
@@ -18,18 +15,15 @@ export class MempoolService {
   constructor(private readonly http: HttpClient) {}
 
   /**
-   * Vérifie les transferts BRC-20 non confirmés pour une adresse et un ticker.
+   * Vérifie si une adresse a des transferts BRC-20 non confirmés pour un ticker.
    *
-   * Utile pour afficher un solde "en attente" dans une interface utilisateur,
-   * avant que la transaction soit confirmée sur le réseau Bitcoin.
-   *
-   * @param address - Adresse Bitcoin (bc1p..., bc1q...)
-   * @param ticker  - Ticker du token BRC-20 (ex: "ORDI", "W")
+   * @param address - Adresse Bitcoin
+   * @param ticker  - Ticker du token BRC-20
    *
    * @example
-   * const pending = await client.checkPending('bc1p...', 'ORDI');
-   * if (pending.transfers.length > 0) {
-   *   console.log(`En attente: ${pending.pendingAmount} ORDI`);
+   * const result = await client.checkPending('bc1p...', 'ORDI');
+   * if (result.hasPendingTransfer) {
+   *   console.log('Transfert en attente d\'ORDI détecté !');
    * }
    */
   async checkPending(address: string, ticker: string): Promise<PendingResult> {

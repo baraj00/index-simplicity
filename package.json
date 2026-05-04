@@ -1,0 +1,19 @@
+{
+  "name": "@universal-protocol/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for the Universal Protocol (BRC-20 Extension on Bitcoin)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["bitcoin", "brc20", "universal-protocol", "sdk", "ordinals"],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}

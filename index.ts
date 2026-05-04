@@ -18,12 +18,20 @@ export type { TokenInfo, Operation, IndexerStatus } from './src/types/brc20.type
 // Types — Swap
 export type {
   Pool,
-  SwapQuote,
   SwapPosition,
   TvlInfo,
   ListPoolsOptions,
   ListPositionsOptions,
 } from './src/types/swap.types';
+
+// Types — Mempool
+export type { PendingTransfer, PendingResult } from './src/types/mempool.types';
+
+// Types — Validator
+export type { ValidationResult } from './src/types/validator.types';
+
+// Types — Wrap
+export type { WrapContract } from './src/types/wrap.types';
 
 // Types — Communs
 export type { ActivityOptions, PaginationOptions } from './src/types/common.types';

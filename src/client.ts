@@ -3,16 +3,21 @@ import { IndexerService } from './services/indexer.service';
 import { TokenService } from './services/token.service';
 import { AddressService } from './services/address.service';
 import { SwapService } from './services/swap.service';
+import { MempoolService } from './services/mempool.service';
+import { ValidatorService } from './services/validator.service';
+import { WrapService } from './services/wrap.service';
 import { AddressBalance } from './types/address.types';
 import { TokenInfo, Operation, IndexerStatus } from './types/brc20.types';
 import {
   Pool,
-  SwapQuote,
   SwapPosition,
   TvlInfo,
   ListPositionsOptions,
   ListPoolsOptions,
 } from './types/swap.types';
+import { PendingResult } from './types/mempool.types';
+import { ValidationResult } from './types/validator.types';
+import { WrapContract } from './types/wrap.types';
 import { ActivityOptions } from './types/common.types';
 
 export interface UniversalClientOptions {
@@ -49,6 +54,9 @@ export class UniversalClient {
   private readonly tokens: TokenService;
   private readonly address: AddressService;
   private readonly swap: SwapService;
+  private readonly mempool: MempoolService;
+  private readonly validator: ValidatorService;
+  private readonly wrap: WrapService;
 
   constructor(options: UniversalClientOptions = {}) {
     const http = new HttpClient({
@@ -60,6 +68,9 @@ export class UniversalClient {
     this.tokens = new TokenService(http);
     this.address = new AddressService(http);
     this.swap = new SwapService(http);
+    this.mempool = new MempoolService(http);
+    this.validator = new ValidatorService(http);
+    this.wrap = new WrapService(http);
   }
 
   // ---------------------------------------------------------------------------
@@ -160,26 +171,6 @@ export class UniversalClient {
   }
 
   /**
-   * Récupère les réserves actuelles d'un pool.
-   * @param poolId - ID canonique du pool, trié alphabétiquement (ex: "LOL-WTF")
-   */
-  getPoolReserves(poolId: string): Promise<Pool> {
-    return this.swap.getPoolReserves(poolId);
-  }
-
-  /**
-   * Simule un swap et retourne le montant de sortie attendu.
-   * N'exécute rien on-chain — idéal pour un aperçu avant signature.
-   *
-   * @param src    - Ticker du token à vendre (ex: "LOL")
-   * @param dst    - Ticker du token à recevoir (ex: "WTF")
-   * @param amount - Montant à échanger en décimal (ex: "100.0")
-   */
-  getSwapQuote(src: string, dst: string, amount: string): Promise<SwapQuote> {
-    return this.swap.getQuote(src, dst, amount);
-  }
-
-  /**
    * Retourne la TVL (Total Value Locked) d'un token dans le module Swap.
    * @param ticker - Ticker du token
    */
@@ -205,5 +196,149 @@ export class UniversalClient {
     options?: Omit<ListPositionsOptions, 'owner'>,
   ): Promise<SwapPosition[]> {
     return this.swap.getOwnerPositions(owner, options);
+  }
+
+  /**
+   * Récupère une position de swap par son identifiant unique.
+   * @param id - Identifiant numérique de la position
+   */
+  getSwapPosition(id: number): Promise<SwapPosition> {
+    return this.swap.getPosition(id);
+  }
+
+  /**
+   * Retourne les positions de swap dont l'expiration approche.
+   * @param options - limit, offset
+   */
+  getExpiringSwapPositions(
+    options?: Pick<ListPositionsOptions, 'limit' | 'offset'>,
+  ): Promise<SwapPosition[]> {
+    return this.swap.getExpiringPositions(options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tokens — variantes /all, /tx/{txid}/history, /history-by-height
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Retourne TOUS les tokens BRC-20 (sans pagination).
+   * Pour les listes longues, préférer `listTokens()` avec pagination.
+   */
+  listAllTokens(): Promise<TokenInfo[]> {
+    return this.tokens.listAllTokens();
+  }
+
+  /**
+   * Retourne TOUS les détenteurs d'un token (sans pagination).
+   * @param ticker - Ticker du token
+   */
+  getAllTokenHolders(ticker: string): Promise<AddressBalance[]> {
+    return this.tokens.getAllHolders(ticker);
+  }
+
+  /**
+   * Retourne TOUT l'historique d'un token (sans pagination).
+   * @param ticker - Ticker du token
+   */
+  getAllTokenHistory(ticker: string): Promise<Operation[]> {
+    return this.tokens.getAllHistory(ticker);
+  }
+
+  /**
+   * Retourne les opérations BRC-20 liées à une transaction Bitcoin précise.
+   * @param ticker - Ticker du token
+   * @param txid   - TXID de la transaction
+   */
+  getTokenHistoryByTx(ticker: string, txid: string): Promise<Operation[]> {
+    return this.tokens.getHistoryByTx(ticker, txid);
+  }
+
+  /**
+   * Retourne toutes les opérations BRC-20 indexées à une hauteur de bloc donnée.
+   * @param height - Hauteur du bloc Bitcoin
+   */
+  getHistoryByHeight(height: number): Promise<Operation[]> {
+    return this.tokens.getHistoryByHeight(height);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Adresses — variante par ticker
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Retourne l'historique des opérations d'une adresse pour un token spécifique.
+   * @param address - Adresse Bitcoin
+   * @param ticker  - Ticker du token BRC-20
+   * @param options - limit, skip
+   */
+  getAddressTickerHistory(
+    address: string,
+    ticker: string,
+    options?: ActivityOptions,
+  ): Promise<Operation[]> {
+    return this.address.getTickerHistory(address, ticker, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mempool
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Vérifie les transferts BRC-20 non confirmés pour une adresse et un ticker.
+   *
+   * @param address - Adresse Bitcoin
+   * @param ticker  - Ticker du token BRC-20
+   *
+   * @example
+   * const pending = await client.checkPending('bc1p...', 'ORDI');
+   * console.log(pending.pendingAmount); // montant en attente de confirmation
+   */
+  checkPending(address: string, ticker: string): Promise<PendingResult> {
+    return this.mempool.checkPending(address, ticker);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Validator
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Valide une transaction de Wrap Mint (création de token W).
+   *
+   * @param txid - TXID de la transaction Bitcoin
+   *
+   * @example
+   * const result = await client.validateWrapMint('a1b2c3...');
+   * if (!result.valid) console.error(result.message);
+   */
+  validateWrapMint(txid: string): Promise<ValidationResult> {
+    return this.validator.validateWrapMint(txid);
+  }
+
+  /**
+   * Valide et dérive une adresse Bitcoin depuis un script witness Taproot.
+   *
+   * @param witness - Script witness Taproot (hex ou base64)
+   *
+   * @example
+   * const result = await client.validateAddressFromWitness('5120...');
+   * if (result.valid) console.log(result.address);
+   */
+  validateAddressFromWitness(witness: string): Promise<ValidationResult> {
+    return this.validator.validateAddressFromWitness(witness);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Wrap (W)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Retourne la liste de tous les contrats de wrap (token W).
+   *
+   * @example
+   * const contracts = await client.listWrapContracts();
+   * const active = contracts.filter(c => c.status === 'active');
+   */
+  listWrapContracts(): Promise<WrapContract[]> {
+    return this.wrap.listContracts();
   }
 }

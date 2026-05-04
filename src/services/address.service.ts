@@ -8,9 +8,10 @@ import { normalizeBalance, normalizeOp } from '../utils/normalize';
  * Service gérant tous les appels API liés aux adresses Bitcoin.
  *
  * Endpoints couverts :
- *   GET /v1/indexer/address/{address}/brc20/{ticker}/info   → getBalance()
- *   GET /v1/indexer/address/{address}/history/all           → getTokens()
- *   GET /v1/indexer/address/{address}/history               → getActivity()
+ *   GET /v1/indexer/address/{address}/brc20/{ticker}/info       → getBalance()
+ *   GET /v1/indexer/address/{address}/history/all               → getTokens()
+ *   GET /v1/indexer/address/{address}/history                   → getActivity()
+ *   GET /v1/indexer/address/{address}/brc20/{ticker}/history    → getTickerHistory()
  */
 export class AddressService {
   constructor(private readonly http: HttpClient) {}
@@ -95,6 +96,34 @@ export class AddressService {
         ticker: options.ticker,
         op_type: options.opType,
         limit: options.limit,
+      },
+    );
+    return raw.map(normalizeOp);
+  }
+
+  /**
+   * Retourne l'historique des opérations d'une adresse pour un token spécifique.
+   *
+   * Plus ciblé que `getActivity()` qui retourne tous les tokens confondus.
+   *
+   * @param address - Adresse Bitcoin
+   * @param ticker  - Ticker du token BRC-20
+   * @param options - Pagination : limit, skip
+   *
+   * @example
+   * // Toutes les opérations ORDI de cette adresse
+   * const history = await client.getAddressTickerHistory('bc1p...', 'ORDI');
+   */
+  async getTickerHistory(
+    address: string,
+    ticker: string,
+    options: ActivityOptions = {},
+  ): Promise<Operation[]> {
+    const raw = await this.http.get<RawOp[]>(
+      `/v1/indexer/address/${encodeURIComponent(address)}/brc20/${encodeURIComponent(ticker.toUpperCase())}/history`,
+      {
+        limit: options.limit,
+        skip: options.skip,
       },
     );
     return raw.map(normalizeOp);

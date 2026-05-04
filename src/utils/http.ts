@@ -78,6 +78,41 @@ export class HttpClient {
     return response.json() as Promise<T>;
   }
 
+  /**
+   * Effectue une requête POST avec un body JSON et retourne le JSON parsé.
+   *
+   * @param path - Chemin relatif (ex: /v1/mempool/check-pending)
+   * @param body - Objet à sérialiser en JSON
+   */
+  async post<T>(path: string, body: unknown): Promise<T> {
+    const url = this.buildUrl(path);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify(body),
+      });
+    } catch (networkError) {
+      throw new ApiError(
+        0,
+        `Impossible de joindre l'indexeur (${url}) : ${(networkError as Error).message}`,
+      );
+    }
+
+    if (response.status === 404) {
+      throw new NotFoundError(path);
+    }
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => response.statusText);
+      throw new ApiError(response.status, text);
+    }
+
+    return response.json() as Promise<T>;
+  }
+
   // ---------------------------------------------------------------------------
   // Privé
   // ---------------------------------------------------------------------------

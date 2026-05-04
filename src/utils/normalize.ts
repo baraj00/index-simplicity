@@ -16,14 +16,18 @@ import {
 } from '../types/brc20.types';
 import {
   RawPool,
-  RawSwapQuote,
   RawSwapPosition,
   RawTvlInfo,
   Pool,
-  SwapQuote,
   SwapPosition,
   TvlInfo,
 } from '../types/swap.types';
+import {
+  RawPendingResult,
+  PendingResult,
+} from '../types/mempool.types';
+import { RawValidationResult, ValidationResult } from '../types/validator.types';
+import { RawWrapContract, WrapContract } from '../types/wrap.types';
 
 // ---------------------------------------------------------------------------
 // Address
@@ -70,8 +74,12 @@ export function normalizeTokenInfo(raw: RawTokenInfo): TokenInfo {
     deployTimestamp: raw.deploy_timestamp,
     creatorAddress: raw.creator_address,
     remainingSupply: raw.remaining_supply,
+    minted: raw.minted,
     currentSupply: raw.current_supply,
+    circulatingSupply: raw.circulating_supply,
+    totalLocked: raw.total_locked,
     holders: raw.holders,
+    isCurve: raw.is_curve,
   };
 }
 
@@ -90,27 +98,11 @@ export function normalizeIndexerStatus(raw: RawIndexerStatus): IndexerStatus {
 export function normalizePool(raw: RawPool): Pool {
   return {
     poolId: raw.pool_id,
-    tokenA: raw.token_a,
-    tokenB: raw.token_b,
-    reserveA: raw.reserve_a,
-    reserveB: raw.reserve_b,
-    lastUpdatedHeight: raw.last_updated_height,
-  };
-}
-
-export function normalizeSwapQuote(raw: RawSwapQuote): SwapQuote {
-  return {
-    srcTicker: raw.src_ticker,
-    dstTicker: raw.dst_ticker,
-    amountIn: raw.amount_in,
-    amountOut: raw.amount_out,
-    poolId: raw.pool_id,
-    expectedRate: raw.expected_rate,
-    actualRate: raw.actual_rate,
-    slippagePercent: raw.slippage_percent,
-    priceImpactPercent: raw.price_impact_percent,
-    protocolFee: raw.protocol_fee,
-    isPartialFill: raw.is_partial_fill,
+    src: raw.src,
+    dst: raw.dst,
+    activePositions: raw.active_positions,
+    lockedSum: raw.locked_sum,
+    nextExpirationHeight: raw.next_expiration_height,
   };
 }
 
@@ -118,15 +110,13 @@ export function normalizeSwapPosition(raw: RawSwapPosition): SwapPosition {
   return {
     id: raw.id,
     owner: raw.owner,
-    poolId: raw.pool_id,
-    srcTicker: raw.src_ticker,
-    dstTicker: raw.dst_ticker,
+    src: raw.src,
+    dst: raw.dst,
     amountLocked: raw.amount_locked,
-    status: raw.status,
+    lockStartHeight: raw.lock_start_height,
     unlockHeight: raw.unlock_height,
-    txId: raw.tx_id,
-    blockHeight: raw.block_height,
-    timestamp: raw.timestamp,
+    status: raw.status,
+    initOperationId: raw.init_operation_id,
   };
 }
 
@@ -136,5 +126,51 @@ export function normalizeTvlInfo(raw: RawTvlInfo): TvlInfo {
     totalLockedPositionsSum: raw.total_locked_positions_sum,
     deployRemainingSupply: raw.deploy_remaining_supply,
     tvlEstimate: raw.tvl_estimate,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mempool
+// ---------------------------------------------------------------------------
+
+export function normalizePendingResult(raw: RawPendingResult): PendingResult {
+  return {
+    address: raw.address,
+    ticker: raw.ticker,
+    pendingAmount: raw.pending_amount,
+    transfers: raw.transfers.map((t) => ({
+      txId: t.tx_id,
+      amount: t.amount,
+      fromAddress: t.from_address,
+      toAddress: t.to_address,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Validator
+// ---------------------------------------------------------------------------
+
+export function normalizeValidationResult(raw: RawValidationResult): ValidationResult {
+  return {
+    valid: raw.valid,
+    message: raw.message,
+    address: raw.address,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Wrap
+// ---------------------------------------------------------------------------
+
+export function normalizeWrapContract(raw: RawWrapContract): WrapContract {
+  return {
+    contractId: raw.contract_id,
+    ticker: raw.ticker,
+    taprootAddress: raw.taproot_address,
+    network: raw.network,
+    status: raw.status,
+    totalWrapped: raw.total_wrapped,
+    totalUnwrapped: raw.total_unwrapped,
   };
 }

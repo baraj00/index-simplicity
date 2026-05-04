@@ -1,11 +1,9 @@
 import { HttpClient } from '../utils/http';
 import {
   RawPool,
-  RawSwapQuote,
   RawSwapPosition,
   RawTvlInfo,
   Pool,
-  SwapQuote,
   SwapPosition,
   TvlInfo,
   ListPositionsOptions,
@@ -14,7 +12,6 @@ import {
 import { RawListResponse } from '../types/common.types';
 import {
   normalizePool,
-  normalizeSwapQuote,
   normalizeSwapPosition,
   normalizeTvlInfo,
 } from '../utils/normalize';
@@ -22,15 +19,16 @@ import {
 /**
  * Service gérant les endpoints du module Swap de Simplicity.
  *
- * Le swap est un AMM (Automated Market Maker) natif Bitcoin basé sur le
- * constant product (x * y = k), sans smart contracts ni layer 2.
+ * Le swap Universal Protocol est un système de positions verrouillées
+ * (intent-based) : l'utilisateur verrouille des tokens avec swap.init,
+ * un contrepartiste exécute avec swap.exe. Il n'y a PAS d'AMM ni de réserves.
  *
  * Endpoints couverts :
  *   GET /v1/indexer/swap/pools                        → listPools()
- *   GET /v1/indexer/swap/pools/{pool_id}/reserves     → getPoolReserves()
- *   GET /v1/indexer/swap/quote                        → getQuote()
  *   GET /v1/indexer/swap/tvl/{ticker}                 → getTvl()
  *   GET /v1/indexer/swap/positions                    → listPositions()
+ *   GET /v1/indexer/swap/positions/{id}               → getPosition()
+ *   GET /v1/indexer/swap/expiring                     → getExpiringPositions()
  *   GET /v1/indexer/swap/owner/{owner}/positions      → getOwnerPositions()
  */
 export class SwapService {
@@ -52,50 +50,6 @@ export class SwapService {
     );
     const items = Array.isArray(raw) ? raw : raw.items;
     return items.map(normalizePool);
-  }
-
-  /**
-   * Récupère les réserves actuelles d'un pool spécifique.
-   *
-   * @param poolId - ID canonique du pool, trié alphabétiquement (ex: "LOL-WTF", pas "WTF-LOL")
-   *
-   * @throws NotFoundError si le pool n'existe pas
-   *
-   * @example
-   * const pool = await client.getPoolReserves('LOL-WTF');
-   * console.log(pool.reserveA); // réserve du token A
-   */
-  async getPoolReserves(poolId: string): Promise<Pool> {
-    const raw = await this.http.get<RawPool>(
-      `/v1/indexer/swap/pools/${encodeURIComponent(poolId)}/reserves`,
-    );
-    return normalizePool(raw);
-  }
-
-  /**
-   * Simule un swap et retourne le montant attendu en sortie.
-   *
-   * N'exécute RIEN on-chain — utile pour afficher une preview avant
-   * de construire la transaction OP_RETURN.
-   *
-   * @param src    - Ticker du token à échanger (ex: "LOL")
-   * @param dst    - Ticker du token à recevoir (ex: "WTF")
-   * @param amount - Montant à échanger (en unités décimales, ex: "100.0")
-   *
-   * @throws NotFoundError si le pool n'existe pas (aucune position active)
-   *
-   * @example
-   * const quote = await client.getSwapQuote('LOL', 'WTF', '100.0');
-   * console.log(`Vous recevrez ~${quote.amountOut} WTF`);
-   * console.log(`Impact prix : ${quote.priceImpactPercent}%`);
-   */
-  async getQuote(src: string, dst: string, amount: string): Promise<SwapQuote> {
-    const raw = await this.http.get<RawSwapQuote>('/v1/indexer/swap/quote', {
-      src: src.toUpperCase(),
-      dst: dst.toUpperCase(),
-      amount,
-    });
-    return normalizeSwapQuote(raw);
   }
 
   /**
@@ -136,6 +90,46 @@ export class SwapService {
         limit: options.limit,
         offset: options.offset,
       },
+    );
+    return raw.items.map(normalizeSwapPosition);
+  }
+
+  /**
+   * Récupère une position de swap par son identifiant unique.
+   *
+   * @param id - Identifiant numérique de la position
+   *
+   * @throws NotFoundError si la position n'existe pas
+   *
+   * @example
+   * const position = await client.getSwapPosition(42);
+   * console.log(position.status); // 'active' | 'completed' | 'expired'
+   */
+  async getPosition(id: number): Promise<SwapPosition> {
+    const raw = await this.http.get<RawSwapPosition>(
+      `/v1/indexer/swap/positions/${encodeURIComponent(String(id))}`,
+    );
+    return normalizeSwapPosition(raw);
+  }
+
+  /**
+   * Retourne les positions de swap dont le bloc d'expiration approche.
+   *
+   * Utile pour les contrepartistes qui souhaitent exécuter des swaps
+   * avant qu'ils n'expirent.
+   *
+   * @param options - Pagination : limit, offset
+   *
+   * @example
+   * const expiring = await client.getExpiringSwapPositions({ limit: 20 });
+   * expiring.forEach(p => console.log(`Expire bloc #${p.unlockHeight}`));
+   */
+  async getExpiringPositions(
+    options: Pick<ListPositionsOptions, 'limit' | 'offset'> = {},
+  ): Promise<SwapPosition[]> {
+    const raw = await this.http.get<RawListResponse<RawSwapPosition>>(
+      '/v1/indexer/swap/expiring',
+      { limit: options.limit, offset: options.offset },
     );
     return raw.items.map(normalizeSwapPosition);
   }

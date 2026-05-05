@@ -23,6 +23,18 @@ INDEXER_URL=https://your-indexer node dist-mcp/index.js
 
 ## Installation
 
+> **Note — not yet on npm.** Once `@universal-protocol/sdk` is published you can replace the `node` invocation below with `npx -y @universal-protocol/sdk`. For now, clone the repo and build locally first.
+
+### 1. Build locally
+
+```bash
+git clone https://github.com/baraj00/index-simplicity.git universal-sdk
+cd universal-sdk
+npm install
+npm run build:mcp
+# → dist-mcp/index.js
+```
+
 ### Claude Desktop
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
@@ -32,7 +44,24 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
   "mcpServers": {
     "universal-protocol": {
       "command": "node",
-      "args": ["/absolute/path/to/universal-sdk/dist-mcp/index.js"],
+      "args": ["/path/to/universal-sdk/dist-mcp/index.js"],
+      "env": {
+        "INDEXER_URL": "https://your-indexer-url",
+        "INDEXER_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+**Once published to npm**, replace the above with:
+
+```json
+{
+  "mcpServers": {
+    "universal-protocol": {
+      "command": "npx",
+      "args": ["-y", "@universal-protocol/sdk"],
       "env": {
         "INDEXER_URL": "https://your-indexer-url",
         "INDEXER_API_KEY": "your-api-key"
@@ -51,7 +80,7 @@ Create or edit `.cursor/mcp.json` in your project root:
   "mcpServers": {
     "universal-protocol": {
       "command": "node",
-      "args": ["./dist-mcp/index.js"],
+      "args": ["/path/to/universal-sdk/dist-mcp/index.js"],
       "env": {
         "INDEXER_URL": "http://localhost:8080"
       }

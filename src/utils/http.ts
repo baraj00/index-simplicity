@@ -113,7 +113,11 @@ export class HttpClient {
       throw new ApiError(response.status, text);
     }
 
-    return response.json() as Promise<T>;
+    const json = await response.json() as T;
+    if (json == null) {
+      throw new ApiError(response.status, `Empty response body from ${url}`);
+    }
+    return json;
   }
 
   /**

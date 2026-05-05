@@ -43,6 +43,12 @@ describe('HttpClient.get', () => {
     expect(result).toEqual({ ticker: 'ORDI' });
   });
 
+  it('throws ApiError when response body is null', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(makeResponse(200, null));
+    const client = makeClient();
+    await expect(client.get('/v1/empty')).rejects.toBeInstanceOf(ApiError);
+  });
+
   it('throws NotFoundError on 404', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(makeResponse(404, 'not found'));
     const client = makeClient();

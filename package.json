@@ -19,9 +19,12 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsup index.ts --format cjs,esm --dts --clean --out-dir dist",
-    "dev": "tsup index.ts --format cjs,esm --dts --watch --out-dir dist",
-    "typecheck": "tsc --noEmit"
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean --out-dir dist",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch --out-dir dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
   },
   "keywords": [
     "bitcoin",
@@ -34,6 +37,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsup": "^8.5.1",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.5"
   }
 }

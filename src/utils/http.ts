@@ -92,13 +92,13 @@ export class HttpClient {
     try {
       response = await fetch(url, { ...init, signal: controller.signal });
     } catch (err) {
-      const msg = (err as Error).message ?? String(err);
-      const isTimeout = msg.includes('abort') || msg.includes('AbortError');
+      const error = err as Error;
+      const isTimeout = error.name === 'AbortError';
       throw new ApiError(
         0,
         isTimeout
           ? `Request timed out after ${this.timeoutMs}ms (${url})`
-          : `Unable to reach indexer (${url}): ${msg}`,
+          : `Unable to reach indexer (${url}): ${error.message ?? String(err)}`,
       );
     } finally {
       clearTimeout(timer);

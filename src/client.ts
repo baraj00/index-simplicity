@@ -18,7 +18,7 @@ import {
 import { PendingResult } from './types/mempool.types';
 import { WrapMintValidationResult, AddressValidationResult } from './types/validator.types';
 import { WrapContract, WrapTvl, WrapMetrics, ListContractsOptions } from './types/wrap.types';
-import { ActivityOptions } from './types/common.types';
+import { ActivityOptions, PaginationOptions } from './types/common.types';
 
 export interface UniversalClientOptions {
   /**
@@ -91,14 +91,14 @@ export class UniversalClient {
   // Indexeur
   // ---------------------------------------------------------------------------
 
-  /** Vérifie que l'indexeur est up. Retourne `{ status: "ok" }`. */
+  /** Check that the indexer is up. Returns `{ status: "ok" }`. */
   health(): Promise<{ status: string }> {
     return this.indexer.health();
   }
 
   /**
-   * Retourne l'état de synchronisation de l'indexeur.
-   * Utile pour vérifier si l'indexeur est à jour avec le réseau Bitcoin.
+   * Returns the sync state of the indexer.
+   * Useful to check if the indexer is up to date with the Bitcoin network.
    */
   status(): Promise<IndexerStatus> {
     return this.indexer.status();
@@ -108,31 +108,34 @@ export class UniversalClient {
   // Tokens BRC-20
   // ---------------------------------------------------------------------------
 
-  /** Liste tous les tokens BRC-20 déployés sur le Universal Protocol. */
-  listTokens(): Promise<TokenInfo[]> {
-    return this.tokens.listTokens();
+  /** Lists all deployed BRC-20 tokens on the Universal Protocol.
+   * @param options - Pagination: limit, skip
+   */
+  listTokens(options?: PaginationOptions): Promise<TokenInfo[]> {
+    return this.tokens.listTokens(options);
   }
 
   /**
-   * Récupère les informations d'un token BRC-20 (supply, holders, deploy info...).
-   * @param ticker - Ex: "ORDI", "W" (insensible à la casse)
+   * Fetches detailed information about a BRC-20 token (supply, holders, deploy info...).
+   * @param ticker - e.g. "ORDI", "W" (case-insensitive)
    */
   getToken(ticker: string): Promise<TokenInfo> {
     return this.tokens.getToken(ticker);
   }
 
   /**
-   * Retourne tous les détenteurs d'un token avec leurs balances.
-   * @param ticker - Ex: "ORDI"
+   * Returns all holders of a token with their balances.
+   * @param ticker  - e.g. \"ORDI\"
+   * @param options - Pagination: limit, skip
    */
-  getTokenHolders(ticker: string): Promise<AddressBalance[]> {
-    return this.tokens.getHolders(ticker);
+  getTokenHolders(ticker: string, options?: PaginationOptions): Promise<AddressBalance[]> {
+    return this.tokens.getHolders(ticker, options);
   }
 
   /**
-   * Retourne l'historique des opérations pour un token (deploy, mint, transfer).
-   * @param ticker  - Ex: "ORDI"
-   * @param options - Filtres : opType, limit, skip
+   * Returns the operation history for a token (deploy, mint, transfer).
+   * @param ticker  - e.g. "ORDI"
+   * @param options - Filters: opType, limit, skip
    */
   getTokenHistory(ticker: string, options?: ActivityOptions): Promise<Operation[]> {
     return this.tokens.getHistory(ticker, options);
@@ -143,30 +146,30 @@ export class UniversalClient {
   // ---------------------------------------------------------------------------
 
   /**
-   * Retourne le solde d'un token spécifique pour une adresse.
-   * @param address - Adresse Bitcoin
-   * @param ticker  - Ticker du token (ex: "ORDI")
+   * Returns the balance of a specific token for an address.
+   * @param address - Bitcoin address
+   * @param ticker  - Token ticker (e.g. "ORDI")
    */
   getBalance(address: string, ticker: string): Promise<AddressBalance> {
     return this.address.getBalance(address, ticker);
   }
 
   /**
-   * Retourne tous les tokens détenus par une adresse (balance > 0).
+   * Returns all tokens held by an address (balance > 0).
    *
-   * Inspecte l'historique complet de l'adresse pour identifier les tokens
-   * touchés, puis fetch les balances actuelles en parallèle.
+   * Inspects the full address history to identify touched tokens,
+   * then fetches current balances in parallel (chunks of 10).
    *
-   * @param address - Adresse Bitcoin
+   * @param address - Bitcoin address
    */
   getTokens(address: string): Promise<AddressBalance[]> {
     return this.address.getTokens(address);
   }
 
   /**
-   * Retourne l'historique des opérations BRC-20 d'une adresse.
-   * @param address - Adresse Bitcoin
-   * @param options - Filtres : ticker, opType, limit
+   * Returns the BRC-20 operation history of an address.
+   * @param address - Bitcoin address
+   * @param options - Filters: ticker, opType, limit
    */
   getActivity(address: string, options?: ActivityOptions): Promise<Operation[]> {
     return this.address.getActivity(address, options);
@@ -177,23 +180,23 @@ export class UniversalClient {
   // ---------------------------------------------------------------------------
 
   /**
-   * Liste les pools de swap disponibles.
-   * @param options - Filtrer par src et/ou dst ticker
+   * Lists available swap pools.
+   * @param options - Filter by src and/or dst ticker
    */
   listPools(options?: ListPoolsOptions): Promise<Pool[]> {
     return this.swap.listPools(options);
   }
 
   /**
-   * Retourne la TVL (Total Value Locked) d'un token dans le module Swap.
-   * @param ticker - Ticker du token
+   * Returns the TVL (Total Value Locked) of a token in the Swap module.
+   * @param ticker - Token ticker
    */
   getSwapTvl(ticker: string): Promise<TvlInfo> {
     return this.swap.getTvl(ticker);
   }
 
   /**
-   * Liste les positions de swap avec filtres optionnels.
+   * Lists swap positions with optional filters.
    * @param options - owner, src, dst, status, limit, offset
    */
   listSwapPositions(options?: ListPositionsOptions): Promise<SwapPosition[]> {
@@ -201,8 +204,8 @@ export class UniversalClient {
   }
 
   /**
-   * Retourne toutes les positions de swap d'une adresse.
-   * @param owner   - Adresse Bitcoin
+   * Returns all swap positions for an address.
+   * @param owner   - Bitcoin address
    * @param options - status, limit, offset
    */
   getOwnerSwapPositions(
@@ -213,16 +216,16 @@ export class UniversalClient {
   }
 
   /**
-   * Récupère une position de swap par son identifiant unique.
-   * @param id - Identifiant numérique de la position
+   * Fetches a swap position by its unique identifier.
+   * @param id - Numeric position ID
    */
   getSwapPosition(id: number): Promise<SwapPosition> {
     return this.swap.getPosition(id);
   }
 
   /**
-   * Retourne les positions de swap qui expirent à une hauteur donnée ou avant.
-   * @param heightLte - Hauteur de bloc maximale (REQUIS)
+   * Returns swap positions expiring at or before a given block height.
+   * @param heightLte - Maximum block height (REQUIRED)
    * @param options   - limit, offset
    */
   getExpiringSwapPositions(
@@ -237,24 +240,24 @@ export class UniversalClient {
   // ---------------------------------------------------------------------------
 
   /**
-   * Retourne TOUS les tokens BRC-20 (sans pagination).
-   * Pour les listes longues, préférer `listTokens()` avec pagination.
+   * Returns ALL deployed BRC-20 tokens (no pagination).
+   * For large lists, prefer `listTokens()` with pagination.
    */
   listAllTokens(): Promise<TokenInfo[]> {
     return this.tokens.listAllTokens();
   }
 
   /**
-   * Retourne TOUS les détenteurs d'un token (sans pagination).
-   * @param ticker - Ticker du token
+   * Returns ALL holders of a token (no pagination).
+   * @param ticker - Token ticker
    */
   getAllTokenHolders(ticker: string): Promise<AddressBalance[]> {
     return this.tokens.getAllHolders(ticker);
   }
 
   /**
-   * Retourne TOUT l'historique d'un token (sans pagination).
-   * @param ticker  - Ticker du token
+   * Returns the FULL history of a token (no pagination).
+   * @param ticker  - Token ticker
    * @param options - opType, maxResults, includeInvalid
    */
   getAllTokenHistory(
@@ -265,17 +268,17 @@ export class UniversalClient {
   }
 
   /**
-   * Retourne les opérations BRC-20 liées à une transaction Bitcoin précise.
-   * @param ticker - Ticker du token
-   * @param txid   - TXID de la transaction
+   * Returns BRC-20 operations linked to a specific Bitcoin transaction.
+   * @param ticker - Token ticker
+   * @param txid   - Transaction TXID
    */
   getTokenHistoryByTx(ticker: string, txid: string): Promise<Operation[]> {
     return this.tokens.getHistoryByTx(ticker, txid);
   }
 
   /**
-   * Retourne toutes les opérations BRC-20 indexées à une hauteur de bloc donnée (avec pagination).
-   * @param height  - Hauteur du bloc Bitcoin
+   * Returns all BRC-20 operations indexed at a given block height (paginated).
+   * @param height  - Bitcoin block height
    * @param options - limit, skip
    */
   getHistoryByHeight(
@@ -286,8 +289,8 @@ export class UniversalClient {
   }
 
   /**
-   * Retourne TOUTES les opérations BRC-20 d'un bloc (sans pagination).
-   * @param height  - Hauteur du bloc Bitcoin
+   * Returns ALL BRC-20 operations in a block (no pagination).
+   * @param height  - Bitcoin block height
    * @param options - maxResults, includeInvalid
    */
   getAllHistoryByHeight(
@@ -302,9 +305,9 @@ export class UniversalClient {
   // ---------------------------------------------------------------------------
 
   /**
-   * Retourne l'historique des opérations d'une adresse pour un token spécifique.
-   * @param address - Adresse Bitcoin
-   * @param ticker  - Ticker du token BRC-20
+   * Returns the operation history of an address for a specific token.
+   * @param address - Bitcoin address
+   * @param ticker  - BRC-20 ticker
    * @param options - limit, skip
    */
   getAddressTickerHistory(
@@ -320,14 +323,14 @@ export class UniversalClient {
   // ---------------------------------------------------------------------------
 
   /**
-   * Vérifie les transferts BRC-20 non confirmés pour une adresse et un ticker.
+   * Checks for unconfirmed BRC-20 transfers for an address and ticker.
    *
-   * @param address - Adresse Bitcoin
-   * @param ticker  - Ticker du token BRC-20
+   * @param address - Bitcoin address
+   * @param ticker  - BRC-20 ticker
    *
    * @example
    * const pending = await client.checkPending('bc1p...', 'ORDI');
-   * console.log(pending.pendingAmount); // montant en attente de confirmation
+   * if (pending.hasPendingTransfer) console.log('Unconfirmed transfer detected!');
    */
   checkPending(address: string, ticker: string): Promise<PendingResult> {
     return this.mempool.checkPending(address, ticker);
@@ -338,9 +341,9 @@ export class UniversalClient {
   // ---------------------------------------------------------------------------
 
   /**
-   * Valide une transaction de Wrap Mint (création de token W).
+   * Validates a Wrap Mint transaction (W token creation).
    *
-   * @param rawTxHex - Transaction Bitcoin brute en hexadécimal
+   * @param rawTxHex - Raw Bitcoin transaction in hexadecimal
    *
    * @example
    * const result = await client.validateWrapMint('0200000000010001a83c...');
@@ -351,9 +354,9 @@ export class UniversalClient {
   }
 
   /**
-   * Valide et recalcule une adresse Taproot depuis une transaction brute.
+   * Validates and reconstructs a Taproot address from a raw transaction.
    *
-   * @param rawTxHex - Transaction Bitcoin brute en hexadécimal
+   * @param rawTxHex - Raw Bitcoin transaction in hexadecimal
    *
    * @example
    * const result = await client.validateAddressFromWitness('0200000000010001a83c...');
@@ -368,35 +371,104 @@ export class UniversalClient {
   // ---------------------------------------------------------------------------
 
   /**
-   * Retourne la liste des contrats de wrap avec filtres optionnels.
+   * Lists wrap contracts with optional filters.
    * @param options - status, owner, limit, offset
    *
    * @example
-   * const actifs = await client.listWrapContracts({ status: 'active' });
+   * const active = await client.listWrapContracts({ status: 'active' });
    */
   listWrapContracts(options?: ListContractsOptions): Promise<WrapContract[]> {
     return this.wrap.listContracts(options);
   }
 
   /**
-   * Récupère les détails d'un contrat de wrap par son adresse script.
-   * @param scriptAddress - Adresse Taproot du contrat (bc1p...)
+   * Fetches details of a wrap contract by its script address.
+   * @param scriptAddress - Taproot address of the contract (bc1p...)
    */
   getWrapContract(scriptAddress: string): Promise<WrapContract> {
     return this.wrap.getContract(scriptAddress);
   }
 
-  /**
-   * Retourne la TVL (Total Value Locked) du module Wrap.
-   */
+  /** Returns the TVL (Total Value Locked) of the Wrap module. */
   getWrapTvl(): Promise<WrapTvl> {
     return this.wrap.getTvl();
   }
 
-  /**
-   * Retourne les métriques globales du module Wrap.
-   */
+  /** Returns global metrics for the Wrap module. */
   getWrapMetrics(): Promise<WrapMetrics> {
     return this.wrap.getMetrics();
   }
+
+  // ---------------------------------------------------------------------------
+  // Pagination helpers (async generators)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Async generator that pages through all tokens, yielding one page at a time.
+   *
+   * @param pageSize - Number of tokens per page (default: 50)
+   *
+   * @example
+   * for await (const page of client.listTokensPaginated(100)) {
+   *   page.forEach(t => console.log(t.ticker));
+   * }
+   */
+  async *listTokensPaginated(pageSize = 50): AsyncGenerator<TokenInfo[]> {
+    let skip = 0;
+    while (true) {
+      const page = await this.tokens.listTokens({ limit: pageSize, skip });
+      if (page.length === 0) break;
+      yield page;
+      if (page.length < pageSize) break;
+      skip += pageSize;
+    }
+  }
+
+  /**
+   * Async generator that pages through all holders of a token.
+   *
+   * @param ticker   - BRC-20 ticker
+   * @param pageSize - Number of holders per page (default: 100)
+   *
+   * @example
+   * for await (const page of client.listTokenHoldersPaginated('ORDI')) {
+   *   page.forEach(h => console.log(h.address, h.overallBalance));
+   * }
+   */
+  async *listTokenHoldersPaginated(ticker: string, pageSize = 100): AsyncGenerator<AddressBalance[]> {
+    let skip = 0;
+    while (true) {
+      const page = await this.tokens.getHolders(ticker, { limit: pageSize, skip });
+      if (page.length === 0) break;
+      yield page;
+      if (page.length < pageSize) break;
+      skip += pageSize;
+    }
+  }
+
+  /**
+   * Async generator that pages through swap positions.
+   *
+   * @param options  - owner, src, dst, status filters
+   * @param pageSize - Number of positions per page (default: 100)
+   *
+   * @example
+   * for await (const page of client.listSwapPositionsPaginated({ status: 'active' })) {
+   *   page.forEach(p => console.log(p.id, p.amountLocked));
+   * }
+   */
+  async *listSwapPositionsPaginated(
+    options: Omit<ListPositionsOptions, 'limit' | 'offset'> = {},
+    pageSize = 100,
+  ): AsyncGenerator<SwapPosition[]> {
+    let offset = 0;
+    while (true) {
+      const page = await this.swap.listPositions({ ...options, limit: pageSize, offset });
+      if (page.length === 0) break;
+      yield page;
+      if (page.length < pageSize) break;
+      offset += pageSize;
+    }
+  }
 }
+

@@ -1,7 +1,7 @@
 import { HttpClient } from '../utils/http';
 import { RawTokenInfo, RawOp, TokenInfo, Operation } from '../types/brc20.types';
 import { RawAddressBalance, AddressBalance } from '../types/address.types';
-import { ActivityOptions } from '../types/common.types';
+import { ActivityOptions, PaginationOptions } from '../types/common.types';
 import { normalizeTokenInfo, normalizeOp, normalizeBalance } from '../utils/normalize';
 import { assertTicker, assertNonEmptyString, assertPositiveInt } from '../utils/validate';
 
@@ -23,12 +23,16 @@ export class TokenService {
   constructor(private readonly http: HttpClient) {}
 
   /**
-   * Liste tous les tokens BRC-20 déployés sur le protocole.
+   * Lists all deployed BRC-20 tokens.
    *
-   * @returns Tableau de TokenInfo trié par ordre de déploiement.
+   * @param options - Pagination: limit, skip
+   * @returns Array of TokenInfo sorted by deploy order.
    */
-  async listTokens(): Promise<TokenInfo[]> {
-    const raw = await this.http.get<RawTokenInfo[]>('/v1/indexer/brc20/list');
+  async listTokens(options: PaginationOptions = {}): Promise<TokenInfo[]> {
+    const raw = await this.http.get<RawTokenInfo[]>('/v1/indexer/brc20/list', {
+      limit: options.limit,
+      skip: options.skip,
+    });
     return raw.map(normalizeTokenInfo);
   }
 
@@ -53,26 +57,28 @@ export class TokenService {
   }
 
   /**
-   * Retourne la liste de tous les détenteurs d'un token avec leurs balances.
+   * Returns all holders of a token with their balances.
    *
-   * @param ticker - Ticker du token
+   * @param ticker  - Token ticker
+   * @param options - Pagination: limit, skip
    *
    * @example
    * const holders = await client.getTokenHolders('ORDI');
-   * // Triés par balance décroissante
+   * // Sorted by balance descending
    */
-  async getHolders(ticker: string): Promise<AddressBalance[]> {
+  async getHolders(ticker: string, options: PaginationOptions = {}): Promise<AddressBalance[]> {
     const raw = await this.http.get<RawAddressBalance[]>(
       `/v1/indexer/brc20/${encodeURIComponent(ticker.toUpperCase())}/holders`,
+      { limit: options.limit, skip: options.skip },
     );
     return raw.map(normalizeBalance);
   }
 
   /**
-   * Retourne l'historique des opérations (deploy, mint, transfer) pour un token.
+   * Returns the operation history (deploy, mint, transfer) for a token.
    *
-   * @param ticker  - Ticker du token
-   * @param options - Pagination : limit (défaut 100), skip (défaut 0)
+   * @param ticker  - Token ticker
+   * @param options - Pagination: limit (default 100), skip (default 0)
    *
    * @example
    * const mints = await client.getTokenHistory('ORDI', { opType: 'mint', limit: 50 });

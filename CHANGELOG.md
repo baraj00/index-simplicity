@@ -11,6 +11,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.2.0] — 2026-05-05
+
+### Added
+- **MCP Server** (`mcp/` folder) — Model Context Protocol server exposing the full SDK as 25 AI-accessible tools
+- `mcp/index.ts` — stdio transport entry point (`universal-protocol-mcp` binary)
+- `mcp/server.ts` — `createMcpServer()` factory; reads `INDEXER_URL`, `INDEXER_API_KEY`, `INDEXER_TIMEOUT_MS`, `INDEXER_MAX_RETRIES` from environment
+- `mcp/tools/` — 6 domain files: indexer (2 tools), token (6), address (5), swap (6), wrap (4), validator (2)
+- Zod input validation on every parameterised tool; empty-schema `{}` for no-param tools
+- Structured error propagation: any client error returns `{ isError: true, content: [{ type: 'text', text: message }] }`
+- `build:mcp` npm script and `universal-protocol-mcp` bin entry point
+- `README-MCP.md` — installation guide for Claude Desktop and Cursor
+- MCP unit tests in `mcp/__tests__/mcp.test.ts` using a fake McpServer and mocked client
+
+---
+
 ## [0.1.1] — 2026-05-05
 
 ### Changed

@@ -5,10 +5,14 @@ import { ApiError, NotFoundError } from './errors';
 // ---------------------------------------------------------------------------
 
 export interface HttpClientOptions {
-  /** URL de base de l'indexeur (ex: http://localhost:8080) */
+  /** Base URL of the Simplicity indexer (e.g. http://localhost:8080) */
   baseUrl: string;
-  /** Clé API optionnelle — envoyée dans le header X-API-Key */
+  /** Optional API key — sent in the X-API-Key header */
   apiKey?: string;
+  /** Request timeout in milliseconds (default: 10 000) */
+  timeoutMs?: number;
+  /** Max retries on 5xx responses (default: 3) */
+  maxRetries?: number;
 }
 
 type QueryParams = Record<string, string | number | boolean | undefined | null>;
@@ -18,23 +22,27 @@ type QueryParams = Record<string, string | number | boolean | undefined | null>;
 // ---------------------------------------------------------------------------
 
 /**
- * Wrapper léger autour du fetch natif.
+ * Lightweight wrapper around the native fetch API.
  *
- * Responsabilités :
- * - Construction des URLs avec query params
- * - Gestion des headers (Content-Type, X-API-Key)
- * - Normalisation des erreurs HTTP → ApiError / NotFoundError
- * - Parsing JSON de la réponse
- *
- * N'expose PAS fetch directement — le reste du SDK passe toujours par ici.
+ * Responsibilities:
+ * - URL construction with query params
+ * - Header management (Content-Type, X-API-Key)
+ * - Timeout via AbortController
+ * - Exponential-backoff retry on 5xx responses
+ * - HTTP error normalisation → ApiError / NotFoundError
+ * - JSON response parsing
  */
 export class HttpClient {
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
+  private readonly timeoutMs: number;
+  private readonly maxRetries: number;
 
   constructor(options: HttpClientOptions) {
-    // Supprimer le slash final pour éviter les doubles slashes dans les URLs
+    // Strip trailing slashes to avoid double-slashes in URLs
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
+    this.timeoutMs = options.timeoutMs ?? 10_000;
+    this.maxRetries = options.maxRetries ?? 3;
 
     this.headers = {
       'Content-Type': 'application/json',
@@ -44,65 +52,60 @@ export class HttpClient {
   }
 
   /**
-   * Effectue une requête GET et retourne le JSON parsé.
+   * Perform a GET request and return the parsed JSON.
    *
-   * @param path   - Chemin relatif (ex: /v1/indexer/brc20/list)
-   * @param params - Query params optionnels (undefined/null ignorés)
+   * @param path   - Relative path (e.g. /v1/indexer/brc20/list)
+   * @param params - Optional query params (undefined/null values are ignored)
    */
-  async get<T>(path: string, params?: QueryParams): Promise<T> {
+  get<T>(path: string, params?: QueryParams): Promise<T> {
     const url = this.buildUrl(path, params);
-
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: 'GET',
-        headers: this.headers,
-      });
-    } catch (networkError) {
-      // Erreur réseau (hors ligne, DNS, timeout...)
-      throw new ApiError(
-        0,
-        `Impossible de joindre l'indexeur (${url}) : ${(networkError as Error).message}`,
-      );
-    }
-
-    if (response.status === 404) {
-      throw new NotFoundError(path);
-    }
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => response.statusText);
-      throw new ApiError(response.status, body);
-    }
-
-    return response.json() as Promise<T>;
+    return this.withRetry(() => this.fetchJson<T>(url, { method: 'GET', headers: this.headers }));
   }
 
   /**
-   * Effectue une requête POST avec un body JSON et retourne le JSON parsé.
+   * Perform a POST request with a JSON body and return the parsed JSON.
    *
-   * @param path - Chemin relatif (ex: /v1/mempool/check-pending)
-   * @param body - Objet à sérialiser en JSON
+   * @param path - Relative path (e.g. /v1/mempool/check-pending)
+   * @param body - Object to serialise as JSON
    */
-  async post<T>(path: string, body: unknown): Promise<T> {
+  post<T>(path: string, body: unknown): Promise<T> {
     const url = this.buildUrl(path);
-
-    let response: Response;
-    try {
-      response = await fetch(url, {
+    return this.withRetry(() =>
+      this.fetchJson<T>(url, {
         method: 'POST',
         headers: this.headers,
         body: JSON.stringify(body),
-      });
-    } catch (networkError) {
+      }),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private
+  // ---------------------------------------------------------------------------
+
+  /** Core fetch with timeout via AbortController. */
+  private async fetchJson<T>(url: string, init: RequestInit): Promise<T> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    let response: Response;
+    try {
+      response = await fetch(url, { ...init, signal: controller.signal });
+    } catch (err) {
+      const msg = (err as Error).message ?? String(err);
+      const isTimeout = msg.includes('abort') || msg.includes('AbortError');
       throw new ApiError(
         0,
-        `Impossible de joindre l'indexeur (${url}) : ${(networkError as Error).message}`,
+        isTimeout
+          ? `Request timed out after ${this.timeoutMs}ms (${url})`
+          : `Unable to reach indexer (${url}): ${msg}`,
       );
+    } finally {
+      clearTimeout(timer);
     }
 
     if (response.status === 404) {
-      throw new NotFoundError(path);
+      throw new NotFoundError(url);
     }
 
     if (!response.ok) {
@@ -113,9 +116,28 @@ export class HttpClient {
     return response.json() as Promise<T>;
   }
 
-  // ---------------------------------------------------------------------------
-  // Privé
-  // ---------------------------------------------------------------------------
+  /**
+   * Retry wrapper with exponential backoff.
+   * Only retries on 5xx ApiErrors — 4xx and network errors are not retried.
+   */
+  private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (err) {
+        lastError = err;
+        // Only retry on server-side errors (5xx), not 4xx or config errors
+        if (err instanceof ApiError && err.statusCode >= 500 && attempt < this.maxRetries - 1) {
+          const delay = 200 * 2 ** attempt; // 200ms, 400ms, 800ms...
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastError;
+  }
 
   private buildUrl(path: string, params?: QueryParams): string {
     const url = new URL(`${this.baseUrl}${path}`);
@@ -131,3 +153,5 @@ export class HttpClient {
     return url.toString();
   }
 }
+
+

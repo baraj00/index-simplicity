@@ -3,6 +3,7 @@ import { RawTokenInfo, RawOp, TokenInfo, Operation } from '../types/brc20.types'
 import { RawAddressBalance, AddressBalance } from '../types/address.types';
 import { ActivityOptions } from '../types/common.types';
 import { normalizeTokenInfo, normalizeOp, normalizeBalance } from '../utils/normalize';
+import { assertTicker, assertNonEmptyString, assertPositiveInt } from '../utils/validate';
 
 /**
  * Service gérant les endpoints BRC-20 liés aux tokens.
@@ -44,6 +45,7 @@ export class TokenService {
    * console.log(token.currentSupply); // "18000000"
    */
   async getToken(ticker: string): Promise<TokenInfo> {
+    assertTicker(ticker);
     const raw = await this.http.get<RawTokenInfo>(
       `/v1/indexer/brc20/${encodeURIComponent(ticker.toUpperCase())}/info`,
     );
@@ -149,6 +151,8 @@ export class TokenService {
    * const ops = await client.getTokenHistoryByTx('ORDI', 'a1b2c3...');
    */
   async getHistoryByTx(ticker: string, txid: string): Promise<Operation[]> {
+    assertTicker(ticker);
+    assertNonEmptyString(txid, 'txid');
     const raw = await this.http.get<RawOp[]>(
       `/v1/indexer/brc20/${encodeURIComponent(ticker.toUpperCase())}/tx/${encodeURIComponent(txid)}/history`,
     );
@@ -168,6 +172,7 @@ export class TokenService {
     height: number,
     options: { limit?: number; skip?: number } = {},
   ): Promise<Operation[]> {
+    assertPositiveInt(height, 'height');
     const raw = await this.http.get<RawOp[]>(
       `/v1/indexer/brc20/history-by-height/${encodeURIComponent(String(height))}`,
       { limit: options.limit, skip: options.skip },

@@ -22,30 +22,42 @@ import { ActivityOptions } from './types/common.types';
 
 export interface UniversalClientOptions {
   /**
-   * URL de base de l'indexeur Simplicity.
+   * Base URL of the Simplicity indexer.
    * @default "http://localhost:8080"
    */
   baseUrl?: string;
   /**
-   * Clé API optionnelle — envoyée dans le header X-API-Key.
+   * Optional API key — sent in the X-API-Key header.
    */
   apiKey?: string;
+  /**
+   * Request timeout in milliseconds.
+   * @default 10000
+   */
+  timeoutMs?: number;
+  /**
+   * Maximum number of retries on 5xx responses (exponential backoff).
+   * @default 3
+   */
+  maxRetries?: number;
 }
 
 /**
- * Point d'entrée principal du SDK Universal Protocol.
+ * Main entry point for the Universal Protocol SDK.
  *
- * Instancier une seule fois et réutiliser l'instance (pattern singleton).
+ * Create one instance and reuse it throughout your application.
  *
  * @example
  * ```ts
- * // Développement local
+ * // Local development
  * const client = new UniversalClient();
  *
  * // Production
  * const client = new UniversalClient({
  *   baseUrl: 'https://indexer.myproject.com',
  *   apiKey: process.env.INDEXER_API_KEY,
+ *   timeoutMs: 15_000,
+ *   maxRetries: 3,
  * });
  * ```
  */
@@ -62,6 +74,8 @@ export class UniversalClient {
     const http = new HttpClient({
       baseUrl: options.baseUrl ?? 'http://localhost:8080',
       apiKey: options.apiKey,
+      timeoutMs: options.timeoutMs,
+      maxRetries: options.maxRetries,
     });
 
     this.indexer = new IndexerService(http);

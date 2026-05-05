@@ -15,6 +15,7 @@ import {
   normalizeSwapPosition,
   normalizeTvlInfo,
 } from '../utils/normalize';
+import { assertTicker, assertPositiveInt } from '../utils/validate';
 
 /**
  * Service gérant les endpoints du module Swap de Simplicity.
@@ -62,6 +63,7 @@ export class SwapService {
    * console.log(tvl.tvlEstimate); // "1111111.11000000"
    */
   async getTvl(ticker: string): Promise<TvlInfo> {
+    assertTicker(ticker);
     const raw = await this.http.get<RawTvlInfo>(
       `/v1/indexer/swap/tvl/${encodeURIComponent(ticker.toUpperCase())}`,
     );
@@ -106,6 +108,7 @@ export class SwapService {
    * console.log(position.status); // 'active' | 'completed' | 'expired'
    */
   async getPosition(id: number): Promise<SwapPosition> {
+    assertPositiveInt(id, 'id');
     const raw = await this.http.get<RawSwapPosition>(
       `/v1/indexer/swap/positions/${encodeURIComponent(String(id))}`,
     );
@@ -127,6 +130,7 @@ export class SwapService {
     heightLte: number,
     options: Pick<ListPositionsOptions, 'limit' | 'offset'> = {},
   ): Promise<SwapPosition[]> {
+    assertPositiveInt(heightLte, 'heightLte');
     const raw = await this.http.get<RawListResponse<RawSwapPosition>>(
       '/v1/indexer/swap/expiring',
       { height_lte: heightLte, limit: options.limit, offset: options.offset },

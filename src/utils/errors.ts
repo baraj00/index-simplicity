@@ -1,26 +1,26 @@
 /**
- * Classes d'erreurs du SDK Universal Protocol.
+ * Error classes for the Universal Protocol SDK.
  *
- * Hiérarchie :
+ * Hierarchy:
  *   Error
- *   └── UniversalSDKError    (base de tous les erreurs SDK)
- *       ├── ApiError         (erreur HTTP de l'indexeur)
+ *   └── UniversalSDKError    (base for all SDK errors)
+ *       ├── ApiError         (HTTP error from the indexer)
  *       │   └── NotFoundError (404)
- *       └── ConfigError      (mauvaise configuration du client)
+ *       └── ConfigError      (bad client configuration)
  */
 
-/** Classe de base pour toutes les erreurs du SDK. */
+/** Base class for all SDK errors. */
 export class UniversalSDKError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'UniversalSDKError';
-    // Nécessaire pour que instanceof fonctionne correctement avec TypeScript
+    // Required for instanceof to work correctly with TypeScript
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
 /**
- * Levée quand l'API Simplicity retourne une réponse HTTP d'erreur (4xx, 5xx).
+ * Thrown when the Simplicity API returns an HTTP error response (4xx, 5xx).
  */
 export class ApiError extends UniversalSDKError {
   constructor(
@@ -34,24 +34,24 @@ export class ApiError extends UniversalSDKError {
 }
 
 /**
- * Levée quand une ressource demandée n'existe pas (404).
- * Ex : adresse inconnue, ticker inexistant.
+ * Thrown when a requested resource does not exist (404).
+ * e.g. unknown address, undeployed ticker.
  */
 export class NotFoundError extends ApiError {
   constructor(resource: string) {
-    super(404, `Ressource introuvable : ${resource}`);
+    super(404, `Resource not found: ${resource}`);
     this.name = 'NotFoundError';
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
 /**
- * Levée quand le client est mal configuré.
- * Ex : baseUrl manquante ou invalide.
+ * Thrown when the client is misconfigured.
+ * e.g. missing or invalid baseUrl.
  */
 export class ConfigError extends UniversalSDKError {
   constructor(message: string) {
-    super(`[Configuration] ${message}`);
+    super(`[Config] ${message}`);
     this.name = 'ConfigError';
     Object.setPrototypeOf(this, new.target.prototype);
   }

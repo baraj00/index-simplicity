@@ -3,6 +3,7 @@ import { AddressBalance, RawAddressBalance } from '../types/address.types';
 import { RawOp, Operation } from '../types/brc20.types';
 import { ActivityOptions, RawGetAllResponse } from '../types/common.types';
 import { normalizeBalance, normalizeOp } from '../utils/normalize';
+import { assertAddress, assertTicker } from '../utils/validate';
 
 /**
  * Service gérant tous les appels API liés aux adresses Bitcoin.
@@ -30,6 +31,8 @@ export class AddressService {
    * console.log(balance.availableBalance); // "800.00000000"
    */
   async getBalance(address: string, ticker: string): Promise<AddressBalance> {
+    assertAddress(address);
+    assertTicker(ticker);
     const raw = await this.http.get<RawAddressBalance>(
       `/v1/indexer/address/${encodeURIComponent(address)}/brc20/${encodeURIComponent(ticker.toUpperCase())}/info`,
     );
@@ -56,17 +59,23 @@ export class AddressService {
       `/v1/indexer/address/${encodeURIComponent(address)}/history/all`,
     );
 
-    // 2. Déduplique les tickers
+    // 2. Deduplicate tickers
     const tickers = [...new Set(historyResponse.data.map((op) => op.ticker))];
 
-    // 3. Fetch les balances en parallèle — Promise.allSettled pour ne pas
-    //    bloquer si un ticker retourne 404 (balance inexistante)
-    const results = await Promise.allSettled(
-      tickers.map((ticker) => this.getBalance(address, ticker)),
-    );
+    // 3. Fetch balances with limited concurrency (chunks of 10) to avoid
+    //    flooding the indexer when an address has many distinct tickers.
+    const CHUNK = 10;
+    const settled: PromiseSettledResult<AddressBalance>[] = [];
+    for (let i = 0; i < tickers.length; i += CHUNK) {
+      const chunk = tickers.slice(i, i + CHUNK);
+      const results = await Promise.allSettled(
+        chunk.map((ticker) => this.getBalance(address, ticker)),
+      );
+      settled.push(...results);
+    }
 
-    // 4. Garde uniquement les balances > 0
-    return results
+    // 4. Keep only balances > 0
+    return settled
       .filter(
         (r): r is PromiseFulfilledResult<AddressBalance> =>
           r.status === 'fulfilled' && parseFloat(r.value.overallBalance) > 0,
@@ -75,9 +84,9 @@ export class AddressService {
   }
 
   /**
-   * Retourne l'historique des opérations BRC-20 impliquant une adresse.
+   * Returns the BRC-20 operation history for an address.
    *
-   * Inclut les opérations où l'adresse est expéditeur OU destinataire.
+   * Includes operations where the address is sender OR receiver.
    *
    * @param address - Adresse Bitcoin
    * @param options - Filtres : ticker, opType, limit (défaut 100)
